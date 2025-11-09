@@ -52,14 +52,14 @@ func NewChatOpenAI(ctx context.Context, model string, opts ...LLMOption) *ChatOp
 		panic("model is required")
 	}
 	var (
-		apiKey  string = os.Getenv(ChatGPTOpenAPIKEY)
-		baseURL string = os.Getenv(ChatGPTBaseURL)
+		apiKey  = os.Getenv(ChatGPTOpenAPIKEY)
+		baseURL = os.Getenv(ChatGPTBaseURL)
 	)
 	if apiKey == "" {
 		panic("missing OPENAI_API_KEY")
 	}
 	options := []option.RequestOption{
-		option.WithAPIKey(os.Getenv(ChatGPTOpenAPIKEY)),
+		option.WithAPIKey(apiKey),
 	}
 	if baseURL != "" {
 		options = append(options, option.WithBaseURL(baseURL))

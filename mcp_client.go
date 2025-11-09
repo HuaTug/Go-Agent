@@ -19,15 +19,7 @@ type MCPClient struct {
 	Env    []string
 }
 
-type MCPClientOptions func(*MCPClient)
-
-func WithTools(tools []mcp.Tool) MCPClientOptions {
-	return func(c *MCPClient) {
-		c.Tools = tools
-	}
-}
-
-func NewMCPClient(ctx context.Context, cmd string, env, args []string, opts ...MCPClientOptions) *MCPClient {
+func NewMCPClient(ctx context.Context, cmd string, env, args []string) *MCPClient {
 	stdioTransport := transport.NewStdio(cmd, env, args...)
 	cli := client.NewClient(stdioTransport)
 	m := &MCPClient{
@@ -36,9 +28,6 @@ func NewMCPClient(ctx context.Context, cmd string, env, args []string, opts ...M
 		Cmd:    cmd,
 		Args:   args,
 		Env:    env,
-	}
-	for _, opt := range opts {
-		opt(m)
 	}
 	return m
 }

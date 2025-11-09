@@ -22,14 +22,21 @@ func NewAgent(ctx context.Context, model string, mcpCli []*MCPClient, systemProm
 	tools := make([]mcp.Tool, 0)
 	for _, item := range mcpCli {
 		// 启动 stdio 传输
-		if err := item.Start(); err != nil {
+		err := item.Start()
+		if err != nil {
 			fmt.Println("mcp listen error:", err)
 			continue
 		}
-		// 列出工具
-		if err := item.SetTools(); err != nil {
-			fmt.Println("list tools error:", err)
+
+		err = item.SetTools()
+		if err != nil {
+			fmt.Println("mcp set tools error:", err)
 			continue
+		}
+
+		// 新增日志：打印该客户端的工具名称，便于确认工具是否正确注册
+		for _, t := range item.GetTool() {
+			fmt.Println("tool ready:", t.Name)
 		}
 		tools = append(tools, item.GetTool()...)
 	}
@@ -57,6 +64,7 @@ func (a *Agent) Invoke(prompt string) string {
 		return ""
 	}
 	response, toolCalls := a.LLM.Chat(prompt)
+	fmt.Println("toolCalls", toolCalls)
 	for len(toolCalls) > 0 {
 		fmt.Println("response", response)
 		for _, toolCall := range toolCalls {

@@ -55,14 +55,16 @@ func NewChatOpenAI(ctx context.Context, model string, opts ...LLMOption) *ChatOp
 		apiKey  = os.Getenv(ChatGPTOpenAPIKEY)
 		baseURL = os.Getenv(ChatGPTBaseURL)
 	)
+	// 使用默认的 DeepSeek API 配置
 	if apiKey == "" {
-		panic("missing OPENAI_API_KEY")
+		apiKey = DefaultAPIKey
+	}
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
 	}
 	options := []option.RequestOption{
 		option.WithAPIKey(apiKey),
-	}
-	if baseURL != "" {
-		options = append(options, option.WithBaseURL(baseURL))
+		option.WithBaseURL(baseURL),
 	}
 	cli := openai.NewClient(options...)
 	llm := &ChatOpenAI{
@@ -93,11 +95,26 @@ func (c *ChatOpenAI) Chat(prompt string) (result string, toolCall []openai.ToolC
 	if len(toolsParam) == 0 {
 		toolsParam = nil
 	}
+	fmt.Printf("Available tools count: %d\n", len(toolsParam))
+	if len(toolsParam) > 0 {
+		fmt.Println("First few tools:")
+		for i, tool := range toolsParam {
+			if i >= 3 {
+				break
+			}
+			if tool.OfFunction != nil {
+				fmt.Printf("  - %s\n", tool.OfFunction.Function.Name)
+			}
+		}
+	}
 	stream := c.LLM.Chat.Completions.NewStreaming(c.Ctx, openai.ChatCompletionNewParams{
-		Messages: c.Message,
-		Seed:     openai.Int(0),
-		Model:    c.Model,
-		Tools:    toolsParam,
+		Messages:    c.Message,
+		Seed:        openai.Int(0),
+		Model:       c.Model,
+		Tools:       toolsParam,
+		Temperature: openai.Float(0.7),
+		TopP:        openai.Float(0.6),
+		MaxTokens:   openai.Int(12000),
 	})
 	acc := openai.ChatCompletionAccumulator{}
 	var toolCalls []openai.ToolCallUnion
@@ -136,6 +153,22 @@ func (c *ChatOpenAI) Chat(prompt string) (result string, toolCall []openai.ToolC
 
 	if len(acc.Choices) > 0 {
 		c.Message = append(c.Message, acc.Choices[0].Message.ToParam())
+		fmt.Printf("Response finish reason: %s\n", acc.Choices[0].FinishReason)
+		fmt.Printf("Tool calls in response: %d\n", len(acc.Choices[0].Message.ToolCalls))
+
+		// 如果流式处理中没有捕获到工具调用，从最终消息中提取
+		if len(toolCalls) == 0 && len(acc.Choices[0].Message.ToolCalls) > 0 {
+			fmt.Println("Extracting tool calls from final message...")
+			for _, tc := range acc.Choices[0].Message.ToolCalls {
+				toolCalls = append(toolCalls, openai.ToolCallUnion{
+					ID: tc.ID,
+					Function: openai.FunctionToolCallFunction{
+						Name:      tc.Function.Name,
+						Arguments: tc.Function.Arguments,
+					},
+				})
+			}
+		}
 	}
 
 	if stream.Err() != nil {

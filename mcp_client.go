@@ -68,6 +68,7 @@ func (m *MCPClient) SetTools() error {
 	return nil
 }
 
+
 func (m *MCPClient) CallTool(name string, args any) (string, error) {
 	var arguments map[string]any
 	switch v := args.(type) {
